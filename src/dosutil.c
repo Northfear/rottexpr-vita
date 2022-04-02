@@ -18,6 +18,10 @@
 #include "SDL2/SDL.h"
 #endif
 
+#ifdef VITA
+extern const char *VITA_PATH;
+#endif
+
 /*
   Copied over from Wolf3D Linux: http://www.icculus.org/wolf3d/
   Modified for ROTT.
@@ -67,7 +71,23 @@ extern char ApogeePath[256];
 
 int setup_homedir (void)
 {
-#if PLATFORM_UNIX && !defined(__MINGW32__)
+#ifdef VITA
+    int err;
+
+    /* try to create the root directory */
+    snprintf (ApogeePath, sizeof (ApogeePath), "%s", VITA_PATH);
+    err = mkdir (ApogeePath, S_IRWXU);
+
+    snprintf (ApogeePath, sizeof (ApogeePath), "%s/.rott/", ApogeePath);
+
+    err = mkdir (ApogeePath, S_IRWXU);
+    if (err == -1 && errno != EEXIST)
+    {
+        fprintf (stderr, "Couldn't create preferences directory: %s\n",
+                 strerror (errno));
+        return -1;
+    }
+#elif PLATFORM_UNIX && !defined(__MINGW32__)
     int err;
 
     /* try to create the root directory */
@@ -232,7 +252,7 @@ void DisplayTextSplash(byte *text, int l)
     printf ("\033[m");
 }
 
-#if !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(__ANDROID__)
+#if !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(__ANDROID__) && !defined(VITA)
 #include <execinfo.h>
 
 void print_stack (int level)

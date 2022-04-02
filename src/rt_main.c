@@ -72,6 +72,113 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "music.h"
 #include "fx_man.h"
 
+#ifdef VITA
+#include <psp2/kernel/clib.h>
+#include <psp2/power.h>
+#include <psp2/appmgr.h>
+
+enum
+{
+    VITA_FULLSCREEN_WIDTH = 960,
+    VITA_FULLSCREEN_HEIGHT = 544,
+};
+
+int _newlib_heap_size_user = 224 * 1024 * 1024;
+
+#if (SHAREWARE == 1)
+const char *VITA_PATH = "ux0:data/rottexpr/shareware/";
+#else
+const char *VITA_PATH = "ux0:data/rottexpr/";
+#endif
+
+SDL_Rect destRect;
+SDL_GameController *gameController;
+SDL_Sensor *vitaGyro;
+
+
+void *memcpy(void *destination, const void *source, size_t n)
+{
+	return sceClibMemcpy(destination, source, n);
+}
+
+void *memset(void *destination, int c, size_t n)
+{
+	return sceClibMemset(destination, c, n);
+}
+
+void *memmove(void *destination, const void *source, size_t n)
+{
+	return sceClibMemmove(destination, source, n);
+}
+
+int memcmp(const void *arr1, const void *arr2, size_t n)
+{
+	return sceClibMemcmp(arr1, arr2, n);
+}
+
+void OpenController()
+{
+    SDL_InitSubSystem (SDL_INIT_GAMECONTROLLER);
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+        if (SDL_IsGameController(i)) {
+            gameController = SDL_GameControllerOpen(i);
+        }
+    }
+}
+
+void CloseController()
+{
+    if (SDL_GameControllerGetAttached(gameController)) {
+        SDL_GameControllerClose(gameController);
+        gameController = NULL;
+    }
+}
+
+void OpenGyro()
+{
+    SDL_InitSubSystem (SDL_INIT_SENSOR);
+    for (int i = 0; i < SDL_NumSensors(); ++i) {
+        if (SDL_SensorGetDeviceType(i) == SDL_SENSOR_GYRO) {
+            vitaGyro = SDL_SensorOpen(i);
+        }
+    }
+}
+
+void SetRenderRect(int width, int height)
+{
+    // screen scaling calculation
+    destRect.x = 0;
+    destRect.y = 0;
+    destRect.w = width;
+    destRect.h = height;
+
+    int isFullScreen = 1;
+
+    if ( width != VITA_FULLSCREEN_WIDTH || height != VITA_FULLSCREEN_HEIGHT ) {
+        if ( isFullScreen ) {
+            //vita2d_texture_set_filters(texBuffer, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
+            if (((float)( VITA_FULLSCREEN_WIDTH ) / VITA_FULLSCREEN_HEIGHT ) >= ((float)( width ) / height ) ) {
+                const float vita_scale = (float)( VITA_FULLSCREEN_HEIGHT ) / height;
+                destRect.w = (int32_t)((float)( width ) * vita_scale );
+                destRect.h = VITA_FULLSCREEN_HEIGHT;
+                destRect.x = ( VITA_FULLSCREEN_WIDTH - destRect.w ) / 2;
+            }
+            else {
+                const float vita_scale = (float)( VITA_FULLSCREEN_WIDTH ) / width;
+                destRect.w = VITA_FULLSCREEN_WIDTH;
+                destRect.h = (int32_t)( (float)( height ) * vita_scale );
+                destRect.y = ( VITA_FULLSCREEN_HEIGHT - destRect.h ) / 2;
+            }
+        }
+        else {
+            // center game area
+            destRect.x = ( VITA_FULLSCREEN_WIDTH - width ) / 2;
+            destRect.y = ( VITA_FULLSCREEN_HEIGHT - height ) / 2;
+        }
+    }
+}
+#endif
+
 volatile int    oldtime;
 volatile int    gametime;
 
@@ -178,6 +285,30 @@ int main (int argc, char *argv[])
     }
 #endif
 
+#ifdef VITA
+    sceAppUtilInit(&(SceAppUtilInitParam){}, &(SceAppUtilBootParam){});
+    SceAppUtilAppEventParam eventParam;
+    sceClibMemset(&eventParam, 0, sizeof(SceAppUtilAppEventParam));
+    sceAppUtilReceiveAppEvent(&eventParam);
+    if (eventParam.type == 0x05)
+    {
+        char buffer[2048];
+        sceAppUtilAppEventParseLiveArea(&eventParam, buffer);
+        if (strstr(buffer, "-shareware"))
+        {
+            sceAppMgrLoadExec("app0:/shareware.bin", NULL, NULL);
+        }
+    }
+
+    chdir(VITA_PATH);
+
+	scePowerSetArmClockFrequency(444);
+	scePowerSetBusClockFrequency(222);
+	//scePowerSetGpuClockFrequency(222);
+	scePowerSetGpuXbarClockFrequency(166);
+
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+#endif
     signal (11, crash_print);
 
     if (setup_homedir() == -1) return 1;
@@ -330,6 +461,11 @@ int main (int argc, char *argv[])
     {
         SDL_SetRelativeMouseMode(SDL_TRUE);
     }
+
+#ifdef VITA
+    OpenController();
+    OpenGyro();
+#endif
 
 //   SetTextMode();
 //   GraphicsMode();

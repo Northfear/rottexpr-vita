@@ -66,6 +66,12 @@ extern int     DefaultPlayerCharacter;
 extern int     DefaultPlayerColor;
 extern byte    passwordstring[20];
 
+#ifdef VITA
+extern boolean gyro_aiming;
+extern int     controller_speed;
+extern int     gyro_speed;
+#endif
+
 typedef struct
 {
     char * path;

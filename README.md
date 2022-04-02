@@ -1,3 +1,43 @@
+# rottexpr (Rise of the Triad) port for PS Vita
+
+## Install
+
+Both full and shareware versions are supported.
+
+Copy the content of the full version of the game into `ux0:data/rottexpr/` folder (tested only with GoG release). The path for shareware data is `ux0:data/rottexpr/shareware/` (you can launch shareware version by pressing "Launch Shareware Version" on the bottom of the livearea game screen).
+
+In order to have a working music support, download and copy content of https://www.libsdl.org/projects/SDL_mixer/timidity/timidity.tar.gz into `ux0:/data/`, so that you have `ux0:/data/timidity/` directory.
+
+## Building
+
+### Prerequisites
+- VitaSDK
+- SDL2
+- SDL2-mixer
+
+### Build
+```
+make -f Makefile.vita
+```
+
+## Port info
+
+### Controls
+
+- Left analog stick - Movement
+- Right analog stick - Aiming
+- × - Space (Use/Open)
+- ○ - Esc
+- □ - PageDown (fly/look down)
+- △ - PageUp (fly/look up)
+- D-Pad Up/Down/Left/Right - Arrow keys
+- L1 - Free look
+- R1 - Attack
+- SELECT - Esc
+- START - Return (switch weapons)
+
+Gyro aiming is disabled by default, but you can turn it on and adjust look speed in `Vita options` section of the options menu.
+
 # rottexpr
 
 Based off of the icculus Rise of the Triad source port

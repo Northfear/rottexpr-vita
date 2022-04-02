@@ -726,7 +726,9 @@ boolean US_LineInput (int x, int y, char *buf, const char *def, boolean escok,
 
 
     lastkey = getASCII ();
-
+#ifdef VITA
+    SDL_StartTextInput();
+#endif
     while (!done)
     {
 //      if (GameEscaped==true)

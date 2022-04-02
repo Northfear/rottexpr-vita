@@ -1,0 +1,32 @@
+AUDIOLIB ?= audiolib.a
+
+AR := arm-vita-eabi-gcc-ar
+CC := arm-vita-eabi-gcc
+RANLIB := arm-vita-eabi-gcc-ranlib
+
+ARFLAGS ?= rcT
+
+CFLAGS ?= -std=c17 -Ofast -mcpu=cortex-a9 -mfpu=neon -fgraphite-identity -floop-nest-optimize \
+			-fno-builtin-memcpy -fno-builtin-memset -fno-builtin-memmove -fno-builtin-memcmp
+CFLAGS +=
+CFLAGS +=
+
+OBJS :=
+OBJS += fx_man.o
+OBJS += dsl.o
+OBJS += ll_man.o
+OBJS += multivoc.o
+OBJS += mv_mix.o
+OBJS += mvreverb.o
+OBJS += nodpmi.o
+OBJS += pitch.o
+OBJS += user.o
+OBJS += usrhooks.o
+
+$(AUDIOLIB): $(OBJS)
+	$(RM) $@
+	$(AR) $(ARFLAGS) $@ $^
+	$(RANLIB) $@
+
+clean:
+	$(RM) $(AUDIOLIB) $(OBJS)

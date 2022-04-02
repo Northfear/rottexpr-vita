@@ -22,7 +22,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define MINFRAGMENT     64
 #define DPMI_INT  0x31
+#ifdef VITA
+#define MAXMEMORYSIZE   192 * 1024 * 1024
+#else
 #define MAXMEMORYSIZE   900000000
+#endif
 
 #define LEVELZONESIZE   250000
 

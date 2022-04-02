@@ -98,6 +98,61 @@ static HashTable * scancodes;
 extern boolean sdl_fullscreen;
 #endif
 
+#ifdef VITA
+#include <math.h>
+#include <psp2/kernel/clib.h>
+
+enum
+{
+    CONTROLLER_L_DEADZONE = 15000,
+    CONTROLLER_L_RUN_DEADZONE = 32500,
+    CONTROLLER_R_DEADZONE = 4000,
+};
+
+const float GYRO_SPEED_MOD = 0.1f;
+
+extern SDL_GameController *gameController;
+extern SDL_Sensor *vitaGyro;
+
+// all kind of control related stuff
+int16_t controllerLeftXAxis = 0;
+int16_t controllerLeftYAxis = 0;
+int16_t controllerRightXAxis = 0;
+int16_t controllerRightYAxis = 0;
+
+uint32_t lastControllerTime = 0;
+
+float relativeRightXAxis = 0;
+float relativeRightYAxis = 0;
+
+boolean leftActive = false;
+boolean rightActive = false;
+boolean forwardActive = false;
+boolean backActive = false;
+boolean sprintActive = false;
+
+
+void ProcessControllerAxisMotion()
+{
+    const uint32_t currentTime = SDL_GetTicks();
+    const uint32_t deltaTime = currentTime - lastControllerTime;
+    lastControllerTime = currentTime;
+
+    relativeRightXAxis = ((0.00001f + 0.00001f * controller_speed) * controllerRightXAxis * deltaTime);
+    relativeRightYAxis = ((0.00001f + 0.00001f * controller_speed) * controllerRightYAxis * deltaTime);
+
+    // gyro controls
+    if (gyro_aiming) {
+        float gyro[3] = { 0.f };
+        SDL_SensorGetData(vitaGyro, gyro, 3);
+        relativeRightXAxis += (-gyro[1] * (gyro_speed + 5) * deltaTime * GYRO_SPEED_MOD);
+        relativeRightYAxis += (-gyro[0] * (gyro_speed + 5) * deltaTime * GYRO_SPEED_MOD);
+    }
+
+    sdl_mouse_delta_x += relativeRightXAxis;
+    sdl_mouse_delta_y += relativeRightYAxis;
+}
+#endif
 
 //   'q','w','e','r','t','y','u','i','o','p','[',']','\\', 0 ,'a','s',
 
@@ -374,6 +429,234 @@ static int sdl_key_filter(const SDL_Event *event)
     return(0);
 } /* sdl_key_filter */
 
+#ifdef VITA
+void HandleControllerAxisEvent(SDL_ControllerAxisEvent motion)
+{
+    if (motion.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+        if (abs(motion.value) > CONTROLLER_L_DEADZONE)
+            controllerLeftXAxis = motion.value;
+        else
+            controllerLeftXAxis = 0;
+    } else if (motion.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+        if (abs(motion.value) > CONTROLLER_L_DEADZONE)
+            controllerLeftYAxis = motion.value;
+        else
+            controllerLeftYAxis = 0;
+    } else if (motion.axis == SDL_CONTROLLER_AXIS_RIGHTX) {
+        if (abs(motion.value) > CONTROLLER_R_DEADZONE)
+            controllerRightXAxis = motion.value;
+        else
+            controllerRightXAxis = 0;
+    } else if (motion.axis == SDL_CONTROLLER_AXIS_RIGHTY) {
+        if (abs(motion.value) > CONTROLLER_R_DEADZONE && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
+            controllerRightYAxis = motion.value;
+        else
+            controllerRightYAxis = 0;
+    }
+
+    if ((abs(controllerLeftXAxis) > CONTROLLER_L_RUN_DEADZONE) || (abs(controllerLeftYAxis) > CONTROLLER_L_RUN_DEADZONE))
+	{
+        if (!sprintActive)
+        {
+            sprintActive = true;
+            SDL_Event ev;
+            ev.type = SDL_KEYDOWN;
+            ev.key.state = SDL_PRESSED;
+            ev.key.keysym.mod = KMOD_NONE;
+            ev.key.keysym.scancode = SDL_SCANCODE_LSHIFT;
+            ev.key.keysym.sym = SDLK_LSHIFT;
+            sdl_key_filter(&ev);
+        }
+    }
+    else
+    {
+        if (sprintActive)
+        {
+            sprintActive = false;
+            SDL_Event ev;
+            ev.type = SDL_KEYUP;
+            ev.key.state = SDL_RELEASED;
+            ev.key.keysym.mod = KMOD_NONE;
+            ev.key.keysym.scancode = SDL_SCANCODE_LSHIFT;
+            ev.key.keysym.sym = SDLK_LSHIFT;
+            sdl_key_filter(&ev);
+        }
+    }
+
+	if (controllerLeftXAxis > CONTROLLER_L_DEADZONE)
+	{
+		if (!rightActive)
+		{
+            rightActive = true;
+            SDL_Event ev;
+            ev.type = SDL_KEYDOWN;
+            ev.key.state = SDL_PRESSED;
+            ev.key.keysym.mod = KMOD_NONE;
+            ev.key.keysym.scancode = SDL_SCANCODE_PERIOD;
+            ev.key.keysym.sym = SDLK_PERIOD;
+            sdl_key_filter(&ev);
+		}
+	}
+	else if (rightActive)
+	{
+		rightActive = false;
+		SDL_Event ev;
+		ev.type = SDL_KEYUP;
+		ev.key.state = SDL_RELEASED;
+		ev.key.keysym.mod = KMOD_NONE;
+        ev.key.keysym.scancode = SDL_SCANCODE_PERIOD;
+		ev.key.keysym.sym = SDLK_PERIOD;
+		sdl_key_filter(&ev);
+	}
+
+	if (controllerLeftXAxis < -CONTROLLER_L_DEADZONE)
+	{
+		if (!leftActive)
+		{
+			leftActive = true;
+            SDL_Event ev;
+            ev.type = SDL_KEYDOWN;
+            ev.key.state = SDL_PRESSED;
+            ev.key.keysym.mod = KMOD_NONE;
+            ev.key.keysym.scancode = SDL_SCANCODE_COMMA;
+            ev.key.keysym.sym = SDLK_COMMA;
+            sdl_key_filter(&ev);
+		}
+	}
+	else if (leftActive)
+	{
+		leftActive = false;
+		SDL_Event ev;
+		ev.type = SDL_KEYUP;
+		ev.key.state = SDL_RELEASED;
+		ev.key.keysym.mod = KMOD_NONE;
+        ev.key.keysym.scancode = SDL_SCANCODE_COMMA;
+		ev.key.keysym.sym = SDLK_COMMA;
+		sdl_key_filter(&ev);
+	}
+
+	if (controllerLeftYAxis < -CONTROLLER_L_DEADZONE)
+	{
+		if (!forwardActive)
+		{
+			forwardActive = true;
+            SDL_Event ev;
+            ev.type = SDL_KEYDOWN;
+            ev.key.state = SDL_PRESSED;
+            ev.key.keysym.mod = KMOD_NONE;
+            ev.key.keysym.scancode = SDL_SCANCODE_UP;
+            ev.key.keysym.sym = SDLK_UP;
+            sdl_key_filter(&ev);
+		}
+	}
+	else if (forwardActive)
+	{
+		forwardActive = false;
+		SDL_Event ev;
+		ev.type = SDL_KEYUP;
+		ev.key.state = SDL_RELEASED;
+		ev.key.keysym.mod = KMOD_NONE;
+        ev.key.keysym.scancode = SDL_SCANCODE_UP;
+		ev.key.keysym.sym = SDLK_UP;
+		sdl_key_filter(&ev);
+	}
+
+	if (controllerLeftYAxis > CONTROLLER_L_DEADZONE)
+	{
+		if (!backActive)
+		{
+			backActive = true;
+            SDL_Event ev;
+            ev.type = SDL_KEYDOWN;
+            ev.key.state = SDL_PRESSED;
+            ev.key.keysym.mod = KMOD_NONE;
+            ev.key.keysym.scancode = SDL_SCANCODE_DOWN;
+            ev.key.keysym.sym = SDLK_DOWN;
+            sdl_key_filter(&ev);
+		}
+	}
+	else if (backActive)
+	{
+		backActive = false;
+		SDL_Event ev;
+		ev.type = SDL_KEYUP;
+		ev.key.state = SDL_RELEASED;
+		ev.key.keysym.mod = KMOD_NONE;
+        ev.key.keysym.scancode = SDL_SCANCODE_DOWN;
+		ev.key.keysym.sym = SDLK_DOWN;
+		sdl_key_filter(&ev);
+	}
+}
+
+void HandleControllerButtonEvent(SDL_ControllerButtonEvent button)
+{
+    SDL_Scancode scancode;
+    SDL_Keycode keycode;
+    SDL_Keymod mod_state = KMOD_NONE;
+
+    switch (button.button) {
+    case SDL_CONTROLLER_BUTTON_A:
+        scancode = SDL_SCANCODE_SPACE;
+        keycode = SDLK_SPACE;
+        break;
+    case SDL_CONTROLLER_BUTTON_B:
+        scancode = SDL_SCANCODE_ESCAPE;
+        keycode = SDLK_ESCAPE;
+        break;
+    case SDL_CONTROLLER_BUTTON_X:
+        scancode = SDL_SCANCODE_PAGEDOWN;
+        keycode = SDLK_PAGEDOWN;
+        break;
+    case SDL_CONTROLLER_BUTTON_Y:
+        // fly up
+        scancode = SDL_SCANCODE_PAGEUP;
+        keycode = SDLK_PAGEUP;
+        break;
+    case SDL_CONTROLLER_BUTTON_BACK:
+        scancode = SDL_SCANCODE_ESCAPE;
+        keycode = SDLK_ESCAPE;
+        break;
+    case SDL_CONTROLLER_BUTTON_START:
+        scancode = SDL_SCANCODE_RETURN;
+        keycode = SDLK_RETURN;
+        break;
+    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+        scancode = SDL_SCANCODE_A;
+        keycode = SDLK_a;
+        break;
+    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+        scancode = SDL_SCANCODE_LCTRL;
+        keycode = SDLK_LCTRL;
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_UP:
+        scancode = SDL_SCANCODE_UP;
+        keycode = SDLK_UP;
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+        scancode = SDL_SCANCODE_DOWN;
+        keycode = SDLK_DOWN;
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+        scancode = SDL_SCANCODE_LEFT;
+        keycode = SDLK_LEFT;
+        break;
+    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+        scancode = SDL_SCANCODE_RIGHT;
+        keycode = SDLK_RIGHT;
+        break;
+    default:
+        return;
+    }
+
+    SDL_Event ev_kbd;
+    ev_kbd.type = (button.type == SDL_CONTROLLERBUTTONDOWN) ? SDL_KEYDOWN : SDL_KEYUP;
+    ev_kbd.key.state = (button.type == SDL_CONTROLLERBUTTONDOWN) ? SDL_PRESSED : SDL_RELEASED;
+    ev_kbd.key.keysym.mod = mod_state;
+    ev_kbd.key.keysym.scancode = scancode;
+    ev_kbd.key.keysym.sym = keycode;
+    sdl_key_filter(&ev_kbd);
+}
+#endif
 
 static int root_sdl_event_filter(const SDL_Event *event)
 {
@@ -397,6 +680,58 @@ static int root_sdl_event_filter(const SDL_Event *event)
     case SDL_WINDOWEVENT:
         sdl_handle_window_events();
         break;
+#ifdef VITA
+    case SDL_CONTROLLERDEVICEREMOVED:
+        if (gameController != NULL) {
+            const SDL_GameController* removedController = SDL_GameControllerFromInstanceID(event->jdevice.which);
+            if (removedController == gameController) {
+                SDL_GameControllerClose(gameController);
+                gameController = NULL;
+            }
+        }
+        break;
+    case SDL_CONTROLLERDEVICEADDED:
+        if (gameController == NULL) {
+            gameController = SDL_GameControllerOpen(event->jdevice.which);
+        }
+        break;
+    case SDL_CONTROLLERAXISMOTION:
+        HandleControllerAxisEvent(event->caxis);
+        break;
+    case SDL_CONTROLLERBUTTONDOWN:
+    case SDL_CONTROLLERBUTTONUP:
+        HandleControllerButtonEvent(event->cbutton);
+        break;
+    case SDL_TEXTINPUT:
+    {
+        uint32_t len = strlen(event->text.text);
+
+        for (uint32_t i = 0; i < len; i++)
+        {
+            char current_char = event->text.text[i];
+            if (isupper(current_char))
+            {
+                current_char = tolower(current_char);
+            }
+
+            SDL_Event ev_kbd_down;
+            ev_kbd_down.type = SDL_KEYDOWN;
+            ev_kbd_down.key.state = SDL_PRESSED;
+            ev_kbd_down.key.keysym.mod = SDL_GetModState();
+            ev_kbd_down.key.keysym.scancode = SDL_GetScancodeFromKey(current_char);
+            ev_kbd_down.key.keysym.sym = current_char;
+            sdl_key_filter(&ev_kbd_down);
+
+            SDL_Event ev_kbd_up;
+            ev_kbd_up.type = SDL_KEYUP;
+            ev_kbd_up.key.state = SDL_RELEASED;
+            ev_kbd_up.key.keysym.mod = SDL_GetModState();
+            ev_kbd_up.key.keysym.scancode = SDL_GetScancodeFromKey(current_char);
+            ev_kbd_up.key.keysym.sym = current_char;
+            sdl_key_filter(&ev_kbd_up);
+        }
+    } break;
+#endif
     } /* switch */
 
     return(1);
@@ -420,6 +755,9 @@ void IN_PumpEvents(void)
 {
     sdl_handle_events();
     /* no-op. */
+#ifdef VITA
+    ProcessControllerAxisMotion();
+#endif
 }
 
 

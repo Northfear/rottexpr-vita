@@ -694,6 +694,7 @@ CP_itemtype PlayerMenu[] =
     {1, "name5\0", 'I', NULL},
 };
 
+#ifndef VITA
 CP_MenuNames ControlMMenuNames[] =
 {
     "VISUAL OPTIONS",
@@ -718,6 +719,103 @@ CP_itemtype ControlMMenu[] =
     {1, "muvolumn\0", 'M', (menuptr)MusicVolume},
     {1, "fxvolumn\0", 'S', (menuptr)FXVolume}
 };
+#else
+CP_MenuNames ControlMMenuNames[] =
+{
+    "VISUAL OPTIONS",
+    "CONTROLS",
+    "USER OPTIONS",
+    "EXT USER OPTIONS",//bna added
+    "EXT GAME OPTIONS", //added by LT
+    "MUSIC VOLUME",
+    "SOUND FX VOLUME",
+    "VITA OPTIONS"
+};
+
+CP_iteminfo ControlMItems = {32, 25, 8, 0, 32, ControlMMenuNames, mn_largefont };//bna added
+
+void CP_VisualsMenu(void);
+void DrawVitaMenu(void);
+void CP_Vita(void);
+
+void VitaControllerSpeed()
+{
+    SliderMenu( &controller_speed, 20, 1, 21, 81, 240, 1, "block1", NULL,
+                "Controller Aiming Speed", "Slow", "Fast" );
+    DrawVitaMenu();
+}
+
+void VitaGyroSpeed()
+{
+    SliderMenu( &gyro_speed, 20, 1, 21, 81, 240, 1, "block1", NULL,
+                "Gyro Aiming Speed", "Slow", "Fast" );
+    DrawVitaMenu();
+}
+
+CP_MenuNames VitaOptionsNames[] =
+{
+    "GYRO AIMING",
+    "AIMING SPEED",
+    "GYRO AIMING SPEED"
+};
+
+CP_iteminfo VitaItems = { CTL_X, MENU_Y, 3, -1, 36, VitaOptionsNames, mn_largefont };
+
+CP_itemtype VitaMenu[] =
+{
+    { CP_CursorLocation, "", 'M', NULL },
+    { CP_Active, "", 'A', (menuptr)VitaControllerSpeed },
+    { CP_Active, "", 'M', (menuptr)VitaGyroSpeed },
+};
+
+void DrawVitaButtons (void)
+{
+    int i,
+        x,
+        y;
+
+    int button_on;
+    int button_off;
+
+    button_on  = W_GetNumForName ("snd_on");
+    button_off = W_GetNumForName ("snd_off");
+
+    WindowX = 0;
+    WindowW = 320;
+
+    x = CTL_X+VitaItems.indent-18;
+    y = MENU_Y-1;
+
+    if (gyro_aiming)
+        DrawMenuBufItem (x, y, button_on);
+    else
+    {
+        EraseMenuBufRegion (x, y, 16, 16);
+        DrawMenuBufItem  (x, y, button_off);
+    }
+
+    if ((VitaItems.curpos < 0) || (!VitaMenu[VitaItems.curpos].active))
+        for (i = 0; i < VitaItems.amount; i++)
+            if (VitaMenu[i].active)
+            {
+                VitaItems.curpos = i;
+                break;
+            }
+
+}
+
+CP_itemtype ControlMMenu[] =
+{
+    {1, "adjfwid\0", 'W', (menuptr)CP_VisualsMenu},
+    {2, "cntl\0",     'C', (menuptr)CP_Control},
+    {1, "uopt\0",     'U', (menuptr)CP_OptionsMenu},
+    {1, "euopt\0", 'E', (menuptr)CP_ExtOptionsMenu},//bna added
+    {1, "eaopt\0", 'A', (menuptr)CP_ExtGameOptionsMenu},
+    {1, "muvolumn\0", 'M', (menuptr)MusicVolume},
+    {1, "fxvolumn\0", 'S', (menuptr)FXVolume},
+    {1, "vitaopt\0", 'V', (menuptr)CP_Vita}
+};
+#endif
 
 CP_MenuNames OptionsNames[] =
 {
@@ -769,6 +867,13 @@ typedef struct
 
 ValidResolution AvailableResolutions[] =
 {
+#ifdef VITA
+    {320, 200, NULL, 1},
+    {480, 272, NULL, 1},
+    {640, 400, NULL, 2},
+    {640, 480, NULL, 2},
+    {960, 544, NULL, 2},
+#else
     {320, 200, NULL, 1},
     {640, 400, NULL, 2},
     {640, 480, NULL, 2},
@@ -788,6 +893,7 @@ ValidResolution AvailableResolutions[] =
     {2560, 1080, NULL, 2},
     {2560, 1440, NULL, 2},
     {3840, 2160, NULL, 2},
+#endif
 };
 
 CP_MenuNames *ScreenResolutions = NULL;
@@ -3417,6 +3523,46 @@ int DoLoad (int which)
     return (exit);
 }
 
+#ifdef VITA
+void DrawVitaMenu (void)
+{
+    MenuNum = 1;
+    SetAlternateMenuBuf();
+    ClearMenuBuf();
+    SetMenuTitle ("Vita Options");
+
+    DrawVitaButtons();
+
+    MN_GetCursorLocation( &VitaItems, &VitaMenu[ 0 ] );
+    DrawMenu (&VitaItems, &VitaMenu[0]);
+    DrawMenuBufItem (VitaItems.x, ((VitaItems.curpos*14)+(VitaItems.y-2)),
+                     W_GetNumForName( LargeCursor ) + CursorFrame[ CursorNum ] );
+    DisplayInfo (0);
+    FlipMenuBuf();
+}
+
+void CP_Vita (void)
+{
+    int which;
+
+    DrawVitaMenu();
+
+    do
+    {
+        which = HandleMenu (&VitaItems, &VitaMenu[0], NULL);
+
+        switch (which)
+        {
+        case 0:
+            gyro_aiming  ^= 1;
+            DrawVitaButtons ();
+            break;
+        }
+    } while (which >= 0);
+
+    DrawControlMenu();
+}
+#endif
 
 //******************************************************************************
 //
@@ -3610,6 +3756,9 @@ int CP_SaveGame ( void )
 
 
     MenuNum = 4;
+#ifdef VITA
+    input[0] = '\0';
+#endif
 
 
     DrawLoadSaveScreen (1);
@@ -3635,12 +3784,15 @@ int CP_SaveGame ( void )
                     PrintLSEntry (which);
                 }
             }
+#ifdef VITA
+            SDL_StartTextInput();
+#endif
             quicksaveslot=which;
 
             DrawStoredGame (savedscreen, gamestate.episode, gamestate.mapon);
-
+#ifndef VITA
             strcpy (input, &SaveGameNames[which][0]);
-
+#endif
             if (!SaveGamesAvail[which])
                 EraseMenuBufRegion (LSM_X+LSItems.indent+1, LSM_Y+which*9+2,
                                     77, 6);

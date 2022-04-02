@@ -39,6 +39,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define  STANDARDBATTLELEVELS (DATADIR "HUNTBGIN.RTC")
 #endif
 
+#ifdef VITA
+extern const char *VITA_PATH;
+#endif
+
 enum
 {   vl_low,
     vl_medium,

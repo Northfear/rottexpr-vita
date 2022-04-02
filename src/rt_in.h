@@ -144,6 +144,12 @@ extern boolean JoyPadPresent;
 extern int     mouseadjustment;
 extern int     threshold;
 
+#ifdef VITA
+extern boolean gyro_aiming;
+extern int     controller_speed;
+extern int     gyro_speed;
+#endif
+
 extern boolean  Paused;
 extern volatile int LastScan;
 /* extern KeyboardDef KbdDefs;

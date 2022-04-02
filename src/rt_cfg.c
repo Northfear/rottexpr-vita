@@ -76,7 +76,14 @@ int     FXvolume         = 196;
 
 boolean mouseenabled     = 1;
 boolean usemouselook     = 0;
+#ifdef VITA
+int     inverse_mouse    = -1; //set  to -1 to invert mouse
+boolean gyro_aiming      = 0;
+int     controller_speed = 5;
+int     gyro_speed       = 4;
+#else
 int     inverse_mouse    = 1; //set  to -1 to invert mouse
+#endif
 boolean usejump          = 0;
 boolean sdl_fullscreen   = 1;
 boolean borderWindow = 0;
@@ -537,6 +544,12 @@ boolean ParseConfigFile (void)
 
         // Read screen blanking time
         ReadInt ("BlankTime", &blanktime);
+
+#ifdef VITA
+        ReadBoolean ("GyroAiming", &gyro_aiming);
+        ReadInt ("ControllerSpeed", &controller_speed);
+        ReadInt ("GyroSpeed", &gyro_speed);
+#endif
 
         blanktime=blanktime*60*VBLCOUNTER;
 
@@ -1853,6 +1866,15 @@ void WriteConfig (void)
     SafeWriteString(file,"; Minutes before screen blanking\n");
     WriteParameter (file,"BlankTime        ", blanktime/(VBLCOUNTER*60));
 
+#ifdef VITA
+    SafeWriteString(file,"\n;\n");
+    SafeWriteString(file,"; PS Vita Gyro Aiming\n");
+    WriteParameter (file,"GyroAiming          ", gyro_aiming );
+    SafeWriteString(file,"; (slowest) 1 - 20 (fastest)\n");
+    WriteParameter (file,"ControllerSpeed          ", controller_speed );
+    SafeWriteString(file,"; (slowest) 1 - 30 (fastest)\n");
+    WriteParameter (file,"GyroSpeed          ", gyro_speed );
+#endif
 
     // Write out keys
 

@@ -6,8 +6,13 @@
 
 //typedef unsigned char byte;
 
+#ifdef VITA
+int iGLOBAL_SCREENWIDTH  = 480;
+int iGLOBAL_SCREENHEIGHT = 272;
+#else
 int iGLOBAL_SCREENWIDTH  = 640;//bna val 800
 int iGLOBAL_SCREENHEIGHT = 480;//bna val 600
+#endif
 int iGLOBAL_SCREENBWIDE ;
 int iG_SCREENWIDTH;// default screen width in bytes
 

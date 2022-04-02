@@ -50,6 +50,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "modexlib.h"
 #include "rt_cfg.h"
 
+#ifdef VITA
+#include <psp2/kernel/clib.h>
+#endif
+
 int    egacolor[16];
 byte   *  origpal;
 FILE   *  errout;
@@ -323,7 +327,11 @@ void Error (char *error, ...)
     memset (msgbuf, 0, 300);
 
     va_start (argptr, error);
+#ifdef VITA
+    sceClibPrintf("%s\n", msgbuf);
+#else
     vsprintf (&msgbuf[0], error, argptr);
+#endif
     va_end (argptr);
 
     scriptbuffer = &msgbuf[0];
